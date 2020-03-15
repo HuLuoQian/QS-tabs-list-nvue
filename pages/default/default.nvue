@@ -1,0 +1,45 @@
+<template>
+	<view class="">
+		<QSTabsListNvue 
+		ref="QSTabsListNvue" 
+		:height="windowHeight" 
+		:minWidth="minWidth" 
+		defCurrent="5"></QSTabsListNvue>
+	</view>
+</template>
+
+<script>
+	import QSTabsListNvue from '@/components/QS-tabs-list-nvue/QS-tabs-list-nvue.nvue';
+	export default {
+		components: {
+			QSTabsListNvue
+		},
+		data() {
+			return {
+				windowHeight: 0,
+				title: 'Hello',
+				minWidth: '150rpx'
+			}
+		},
+		mounted() {
+			const {
+				windowHeight,
+				screenHeight
+			} = uni.getSystemInfoSync();
+			this.windowHeight = windowHeight;
+			let n = 0;
+			const tabs = new Array(20).fill('').map(() => {
+				let tab = 'tab_' + n++;
+				return {
+					name: tab,
+					id: tab
+				}
+			});
+			this.$refs.QSTabsListNvue.setTabs(tabs);
+		}
+	}
+</script>
+
+<style>
+
+</style>

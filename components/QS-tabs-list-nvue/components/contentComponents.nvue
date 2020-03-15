@@ -1,0 +1,58 @@
+<template>
+	<view class="">
+		<block v-if="!type">
+			<defComponent :ref="componentRefName" :current="current" :tab="tab" :statusTextColor="statusTextColor" @refreshEnd="refreshEnd"></defComponent>
+		</block>
+	</view>
+</template>
+
+<script>
+	import defComponent from './components/defComponent.nvue';
+	import { _isFn, _isUndefOrNull } from '../js/util.js';
+	export default {
+		components: { defComponent },
+		props: {
+			current: {
+				type: Number,
+				default: -1
+			},
+			type: {
+				type: String,
+				default: ''
+			},
+			getDataFnName: {
+				type: String,
+				default: 'getData'
+			},
+			tab: {
+				type: Object,
+				default() {
+					return {};
+				}
+			},
+			statusTextColor: {
+				type: String,
+				default: '#666'
+			}
+		},
+		data() {
+			return {
+				componentRefName: 'componentRef'
+			}
+		},
+		methods: {
+			getData(status) {
+				const ref = this.$refs[this.componentRefName];
+				if(_isUndefOrNull(ref)) { console.log('找不到当前项的ref'); return; }
+				if(_isFn(ref[this.getDataFnName])) ref[this.getDataFnName](status);
+			},
+			refreshEnd(index, status) {
+				this.$emit('refreshEnd', index, status);
+			}
+		}
+	}
+</script>
+
+<style scoped>
+
+</style>

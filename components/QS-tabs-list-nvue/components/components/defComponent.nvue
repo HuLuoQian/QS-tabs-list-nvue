@@ -1,0 +1,109 @@
+<template>
+	<view class="container">
+		<view class="list-item" v-for="(item, index) in list" :key="index" @click="_click(index)">
+			
+		</view>
+		<view class="statusText-view">
+			<text class="statusText" :style="{
+				 'color': statusTextColor
+			 }" @tap="getData()">
+				{{statusText.text || '数据未加载'}}
+			</text>
+		</view>
+	</view>
+</template>
+
+<script>
+	// #ifdef APP-NVUE
+	const modal = weex.requireModule('modal');
+	// #endif
+	export default {
+		props: {
+			current: {
+				type: Number,
+				default: -1
+			},
+			tab: {
+				type: Object,
+				default () {
+					return {};
+				}
+			},
+			statusTextColor: {
+				type: String,
+				default: '#666'
+			}
+		},
+		data() {
+			return {
+				list: [],
+				statusText: {}
+			}
+		},
+		methods: {
+			getData(status) {
+				
+			},
+			_click(index) {
+				// #ifdef APP-NVUE
+				modal.toast({
+					message: `点击了第${this.current}列 第${index}项`,
+					duration: 0.3
+				})
+				// #endif
+				// #ifndef APP-NVUE
+				uni.showToast({
+					title: `点击了第${this.current}列 第${index}项`,
+					icon: 'none'
+				})
+				// #endif
+			}
+		}
+	}
+</script>
+
+<style scoped>
+	.container {
+		flex-direction: column;
+		padding: 35rpx;
+	}
+
+	.list-item {
+		padding: 30rpx;
+		border-radius: 8rpx;
+		background-color: #fff;
+		flex-direction: row;
+		margin-bottom: 17px;
+	}
+
+	.scroll-item-image {
+		background-color: #F8F8F8;
+		border-radius: 8px;
+		height: 220rpx;
+		width: 300rpx;
+	}
+
+	.scroll-item-text-view {
+		width: 320rpx;
+		flex-direction: row;
+		justify-content: center;
+		align-items: center;
+	}
+
+	.scroll-item-text {
+		font-size: 16px;
+		color: #666;
+	}
+
+	.statusText-view {
+		width: 680rpx;
+		height: 40px;
+		flex-direction: row;
+		justify-content: center;
+		align-items: center;
+	}
+
+	.statusText {
+		font-size: 30rpx;
+	}
+</style>

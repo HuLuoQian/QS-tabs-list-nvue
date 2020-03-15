@@ -1,0 +1,79 @@
+<template>
+	<view class="relative">
+		<view :style="{ 'height': windowHeight + 'px' }">
+			<image 
+			class="bgImg" 
+			:src="bgimg"
+			:style="{
+				'height': windowHeight + 'px'
+			}"
+			 mode="aspectFill"></image>
+			 <view class="" :style="{ 'height': statusBarHeight + 'px' }"> 
+			 	
+			 </view>
+			 <view style="height: 44px;flex-direction: row;align-items: center;justify-content: center;">
+			 	<text style="color: #fff;">QS-tabs-list-Nvue</text>
+			 </view>
+			<QSTabsListNvue 
+			ref="QSTabsListNvue" 
+			:height="windowHeight-44" 
+			:minWidth="minWidth" 
+			defCurrent="5"
+			tabsBackgroundColor="rgba(255,255,255,0)"
+			defColor="#f2f2f2"
+			activeColor="#fff"
+			refreshTextColor="#fff"
+			swiperBackgroundColor="rgba(255,255,255,0)"
+			statusTextColor="#fff">
+			</QSTabsListNvue>
+		</view>
+	</view>
+</template>
+
+<script>
+	import QSTabsListNvue from '@/components/QS-tabs-list-nvue/QS-tabs-list-nvue.nvue';
+	export default {
+		components: {
+			QSTabsListNvue
+		},
+		data() {
+			return {
+				windowHeight: 0,
+				statusBarHeight: 0,
+				minWidth: '150rpx',
+				bgimg: 'https://imgsa.baidu.com/forum/w%3D580/sign=b9e76b8efb03738dde4a0c2a831ab073/f0ed76c6a7efce1b9df0dce4a251f3deb58f65c2.jpg'
+			}
+		},
+		mounted() {
+			const {
+				windowHeight,
+				screenHeight,
+				statusBarHeight
+			} = uni.getSystemInfoSync();
+			this.statusBarHeight = statusBarHeight;
+			this.windowHeight = windowHeight;
+			let n = 0;
+			const tabs = new Array(20).fill('').map(() => {
+				let tab = 'tab_' + n++;
+				return {
+					name: tab,
+					id: tab
+				}
+			});
+			this.$refs.QSTabsListNvue.setTabs(tabs);
+		}
+	}
+</script>
+
+<style scoped>
+	.relative{
+		position: relative;
+	}
+	.bgImg{
+		position: absolute;
+		top: 0;
+		left: 0;
+		background-color: #f8f8f8;
+		width: 750rpx;
+	}
+</style>

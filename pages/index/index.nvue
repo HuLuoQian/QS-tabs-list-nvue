@@ -1,0 +1,30 @@
+<template>
+	<view class="">
+		<button class="btn" type="primary" @click="go('default')">默认示例</button>
+		<button class="btn" type="primary" @click="go('setColor')">设置颜色</button>
+		<button class="btn" type="primary" @click="go('randomColor')">随机颜色</button>
+		<button class="btn" type="primary" @click="go('backgroundImage')">背景图片</button>
+		<button class="btn" type="primary" @click="go('customBackToTop')">自定义回到顶部</button>
+	</view>
+</template>
+
+<script>
+	
+	export default {
+		methods: {
+			go(path) {
+				uni.navigateTo({
+					url: `/pages/${path}/${path}`
+				})
+			}
+		}
+	}
+</script>
+
+<style scoped>
+	.btn{
+		margin-top: 50px;
+		margin-left: 80px;
+		margin-right: 80px;
+	}
+</style>

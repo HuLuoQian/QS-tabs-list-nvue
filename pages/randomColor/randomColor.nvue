@@ -1,0 +1,73 @@
+<template>
+	<view class="">
+		<QSTabsListNvue ref="QSTabsListNvue" :height="windowHeight" :minWidth="minWidth" defCurrent="5"></QSTabsListNvue>
+	</view>
+</template>
+
+<script>
+	import QSTabsListNvue from '@/components/QS-tabs-list-nvue/QS-tabs-list-nvue.nvue';
+
+	function randomColor1() {
+		var r = Math.floor(Math.random() * 256);
+		var g = Math.floor(Math.random() * 256);
+		var b = Math.floor(Math.random() * 256);
+
+		if (r < 16) {
+			r = "0" + r.toString(16);
+		} else {
+			r = r.toString(16);
+		}
+		if (g < 16) {
+			g = "0" + g.toString(16);
+		} else {
+			g = g.toString(16);
+		}
+		if (b < 16) {
+			b = "0" + b.toString(16);
+		} else {
+			b = b.toString(16);
+		}
+
+		return "#" + r + g + b;
+	}
+	export default {
+		components: {
+			QSTabsListNvue
+		},
+		data() {
+			return {
+				windowHeight: 0,
+				title: 'Hello',
+				minWidth: '150rpx'
+			}
+		},
+		mounted() {
+			const {
+				windowHeight,
+				screenHeight
+			} = uni.getSystemInfoSync();
+			this.windowHeight = windowHeight;
+			let n = 0;
+			const tabs = new Array(20).fill('').map(() => {
+				let tab = 'tab_' + n++;
+				return {
+					name: tab,
+					id: tab,
+					lineColor: randomColor1(),
+					tabsBackgroundColor: randomColor1(),
+					swiperBackgroundColor: randomColor1(),
+					refreshTextColor: randomColor1(),
+					statusTextColor: randomColor1()
+				}
+			});
+			this.$refs.QSTabsListNvue.setTabs(tabs);
+		},
+		methods: {
+
+		}
+	}
+</script>
+
+<style>
+
+</style>

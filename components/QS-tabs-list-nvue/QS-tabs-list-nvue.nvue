@@ -1,0 +1,688 @@
+<template>
+	<view id="QS-tabs-list-nvue" class="container" :style="{ 
+		'height': height + 'px' }">
+		<view :style="{ 
+			'height': tabsHeight }">
+			<scroll-view id="tabs-scroll" :show-scrollbar="false" scroll-x="true" class="tabs-container" :scroll-left="scrollLeft"
+			 scroll-with-animation="true">
+				<view class="tabs-container-view" :style="{
+					'height': tabsHeight,
+					'background-color': tabs[swiperCurrent]?(tabs[swiperCurrent].tabsBackgroundColor || tabsBackgroundColor):tabsBackgroundColor
+				}">
+					<view class="tab-item" v-for="(tab, tabIndex) in tabs" :key="tabIndex" :id="preId + tabIndex" :style="{
+					'min-width': minWidth,
+					'padding-left': space, 
+					'padding-right': space }">
+						<text class="tab-text" :style="{
+							'font-size': tabsFontSize}">{{tab.name || tab}}</text>
+						<text class="tab-text-abs" :style="{
+							'line-height': tabsHeight,
+							'font-size': ((swiperCurrent===tabIndex)?tabsActiveFontSize:tabsFontSize),
+							'width': ((tabsInfo[tabIndex]?tabsInfo[tabIndex].width:0) + 'px'),
+							'font-weight': ((swiperCurrent===tabIndex)?'bold':0),
+							'color': ((swiperCurrent===tabIndex)?activeColor:defColor)}"
+						 @tap="tabTap(tabIndex)">{{tab.name || tab}}</text>
+					</view>
+					<view class="tabs-line-container" :animation="animationData" v-if="readyShow" ref="tabsLine" :style="{ 
+						'height': lineHeight + 'px',
+						'bottom': lineBottom,
+						'border-radius': lineHeight + 'px',
+						'background-color': (tabs[swiperCurrent]&&tabs[swiperCurrent].lineColor) || lineColor,
+						'width': lineWidth  + 'px'
+					}"></view>
+				</view>
+			</scroll-view>
+		</view>
+		<view class="swiper-container" :style="{ 
+			'height': getSwiperHeight + 'px' ,
+			'background-color': tabs[swiperCurrent]?(tabs[swiperCurrent].swiperBackgroundColor||swiperBackgroundColor):swiperBackgroundColor }">
+			<swiper v-if="readyShow" id="swiper-id" @transition="swiperAction" @change="swiperAction" @animationfinish="swiperAction"
+			 :disable-touch="disableTouch" :current="swiperCurrent" :style="{ 
+				'height': getSwiperHeight + 'px' }">
+				<swiper-item v-for="(tab, tabIndex) in tabs" :key="tabIndex">
+					<scroll-view scroll-y="true" class="swiper-item-scroll-view" @scrolltolower="scrolltolower(tabIndex)"
+					 :lower-threshold="Number(lowerThreshold)" @scroll="listScroll($event, tabIndex)" :scroll-top="tabs_copy[tabIndex]?(tabs_copy[tabIndex].scroll):0"
+					 scroll-with-animation="true" :style="{ 
+						'height': getSwiperHeight + 'px' }">
+						<!-- #ifdef APP-NVUE -->
+						<refresh v-if="hasRefresh" class="refresh" @refresh="onrefresh(tabIndex, $event)" @pullingdown="onpullingdown(tabIndex, $event)"
+						 :display="tabs_copy[tabIndex].refresh.refreshing ? 'show' : 'hide'" :style="{
+							'height': refreshDistance + 'px'
+						}">
+							<text class="indicator-text" :style="{
+							  'color':  tabs[tabIndex]?(tabs[tabIndex].refreshTextColor||refreshTextColor):refreshTextColor,
+							  'font-size': refreshTextFontSize
+						  }">{{tabs_copy[tabIndex].refresh.refreshText}}</text>
+							<loading-indicator class="indicator" :style="{
+							  'color': tabs[tabIndex]?(tabs[tabIndex].refreshTextColor||refreshTextColor):refreshTextColor,
+							  'height': refreshTextFontSize,
+							  'width': refreshTextFontSize
+						  }"></loading-indicator>
+						</refresh>
+						<!-- #endif -->
+						<block v-if="swiperContentShow">
+							<contentComponents :ref="contentComponentsRefName" :tab="tab" :type="type" :current="tabIndex" :getDataFnName="getDataFnName"
+							 :statusTextColor="tabs[tabIndex]?(tabs[tabIndex].statusTextColor||statusTextColor):statusTextColor" @refreshEnd="refreshEnd"></contentComponents>
+						</block>
+					</scroll-view>
+
+					<!-- 回到顶部按钮 -->
+					<view 
+					class="backToTopView"
+					@click="backToTopFn(tabIndex)" 
+					:style="{
+						'right': backToTopRight,
+						'bottom': backToTopBottom
+					}"
+					v-if="String(backToTop)==='true'?tabs_copy[tabIndex]?(tabs_copy[tabIndex].backToTopShow):false:false">
+						<block v-if="String(backToTopIsSlot)==='true'">
+							<slot name="backToTopSlot"></slot>
+						</block>
+						<block v-else>
+							<view class="backToTop">
+								<text class="backToTopText">回到顶部</text>
+							</view>
+						</block>
+					</view>
+
+				</swiper-item>
+			</swiper>
+		</view>
+	</view>
+</template>
+
+<script>
+	import {
+		log
+	} from './js/config.js';
+	import contentComponents from './components/contentComponents.nvue';
+	import {
+		_setTimeout,
+		_isFn,
+		_isArray,
+		_isUndef,
+		_isNull,
+		_isUndefOrNull
+	} from './js/util.js';
+	// #ifdef APP-NVUE
+	const animation = weex.requireModule('animation');
+	// #endif
+	const {
+		windowWidth
+	} = uni.getSystemInfoSync();
+	const getContentDataStatusObj = {
+		init: 'init',
+		refresh: 'refresh',
+		scrolltolower: 'scrolltolower'
+	}
+	export default {
+		components: {
+			contentComponents
+		},
+		props: {
+			type: { //自定义逻辑判断标识
+				type: String,
+				default: ''
+			},
+			activeType: { //线条动画类型
+				type: String,
+				default: 'moveLine'
+			},
+			height: { //tabs+list组件的高度 单位固定像素px
+				type: [String, Number],
+				default: 500
+			},
+			minWidth: { //单个tab最小宽度
+				type: String,
+				default: '150rpx'
+			},
+			tabsHeight: { //tabs高度
+				type: String,
+				default: '44px'
+			},
+			lineWidth: { //tabsLine线条宽度
+				type: [String, Number],
+				default: uni.upx2px(50)
+			},
+			lineColor: { //线条颜色
+				type: String,
+				default: '#f1505c'
+			},
+			lineHeight: { //线条高度
+				type: [String, Number],
+				default: 3
+			},
+			lineBottom: { //线条距离底部距离
+				type: [String, Number],
+				default: 0
+			},
+			tabsFontSize: { //默认文字大小
+				type: String,
+				default: '30rpx'
+			},
+			tabsActiveFontSize: { //当前项文字大小
+				type: String,
+				default: '32rpx'
+			},
+			tabsBackgroundColor: { //tabs背景颜色
+				type: String,
+				default: '#fff'
+			},
+			swiperBackgroundColor: { //swiper背景颜色
+				type: String,
+				default: '#f8f8f8'
+			},
+			space: { //单个tab左右间距
+				type: String,
+				default: '10px'
+			},
+			defCurrent: { //默认初始项
+				type: [String, Number],
+				default: 0
+			},
+			activeColor: { //当前项主题颜色
+				type: String,
+				default: '#666'
+			},
+			defColor: { //非当前项主题颜色
+				type: String,
+				default: '#999'
+			},
+			lowerThreshold: { //默认初始项
+				type: [String, Number],
+				default: 0
+			},
+			getDataFnName: { //在子组件示例中获取数据的方法名称
+				type: String,
+				default: 'getData'
+			},
+			// 下拉刷新设置
+			hasRefresh: { //是否开启下拉刷新, 目前只支持app-nvue
+				type: [Boolean, String],
+				default: true
+			},
+			refreshDistance: { //刷新距离
+				type: [Number, String],
+				default: 88
+			},
+			beforRefreshText: { //刷新前文字
+				type: String,
+				default: '下拉刷新'
+			},
+			releaseRefreshText: { //释放刷新文字
+				type: String,
+				default: '松开刷新'
+			},
+			isRefreshingText: { //刷新中文字
+				type: String,
+				default: '刷新中...'
+			},
+			successRefreshText: { //刷新成功文字
+				type: String,
+				default: '刷新成功'
+			},
+			failRefreshText: { //刷新失败文字
+				type: String,
+				default: '刷新失败'
+			},
+			refreshTextColor: { //刷新文字的颜色
+				type: String,
+				default: '#666'
+			},
+			refreshTextFontSize: { //刷新文字的大小
+				type: String,
+				default: '30rpx'
+			},
+			statusTextColor: { //列表状态提示文字颜色
+				type: String,
+				default: '#666'
+			},
+			backToTopDistance: { //显示返回顶部的距离
+				type: [String, Number],
+				default: 300
+			},
+			backToTop: {	//是否开启回到顶部功能
+				type: [Boolean, String],
+				default: true
+			},
+			backToTopIsSlot: {	//回到顶部按钮是否显示slot内容
+				type: [Boolean, String],
+				default: false
+			},
+			backToTopRight: {	//回到顶部按钮距离组件右边距离
+				type: [String, Number],
+				default: '30rpx'
+			},
+			backToTopBottom: {	//回到顶部按钮距离组件底部距离
+				type: [String, Number],
+				default: '70rpx'
+			}
+		},
+		data() {
+			return {
+				tabs: [], //tabs数据
+				tabsInfo: [], //由节点信息获取的所有tab的布局信息
+				current: 0, //当前项
+				tabsLineLeft: 0,
+				disableTouch: false,
+
+				preId: 'QSTabID_', //单个tab绑定的id前缀
+				readyShow: false, //控制swiper和tabsLine是否显示
+				swiperContentShow: false, //控制swiper内容是否显示
+				tabsQueryHeight: 44, //由节点信息获取的tabs高度
+				swiperCurrent: 0, //swiper绑定的current
+				istapChangeCurrent: false, //是否是点击tab改变current
+				compontWidth: windowWidth, //组件宽度
+				scrollLeft: 0, //控制tab屏幕居中
+				refreshing: false,
+				tabs_copy: [],
+				contentComponentsRefName: 'QSTABSLIST_CONTENTCOMPONENTS',
+				initSwiperTransition: false,
+				lineAni: null,
+				animationData: {}
+			}
+		},
+		computed: {
+			getSwiperHeight() {
+				return Number(this.height) - Number(this.tabsQueryHeight);
+			}
+		},
+		mounted() {
+			let _this = this;
+			_setTimeout(() => {
+				_this.getComponentWidth();
+				_this.getTabsQuery(res => {
+					log('获取tabs高度成功');
+					_this.tabsQueryHeight = res[0].height;
+				})
+			});
+		},
+		created() {
+			// #ifndef APP-NVUE
+			this.lineAni = uni.createAnimation({
+				duration: 0
+			});
+			// #endif
+		},
+		methods: {
+			// #ifdef APP-NVUE
+			onpullingdown(index, e) {
+				if (e.pullingDistance >= e.viewHeight) {
+					if (this.tabs_copy[index].refresh.refreshText !== this.releaseRefreshText)
+						this.tabs_copy[index].refresh.refreshText = this.releaseRefreshText;
+				} else {
+					if (this.tabs_copy[index].refresh.refreshText !== this.beforRefreshText)
+						this.tabs_copy[index].refresh.refreshText = this.beforRefreshText;
+				}
+			},
+			onrefresh(index, e) {
+				this.tabs_copy[index].refresh.refreshing = true;
+				this.tabs_copy[index].refresh.refreshText = this.isRefreshingText;
+				this.getContentData(index, getContentDataStatusObj.refresh);
+				/* _setTimeout(()=>{
+					this.refreshEnd(index, true);
+				}, 1000) */
+			},
+			// #endif
+			refreshEnd(index, status) {
+				log('刷新结束');
+				if (_isUndefOrNull(index)) return;
+				if (!this.tabs_copy[index]) return;
+				this.tabs_copy[index].refresh.refreshText = status ? this.successRefreshText : this.failRefreshText;
+				_setTimeout(() => {
+					this.tabs_copy[index].refresh.refreshing = false;
+					this.tabs_copy[index].refresh.refreshText = this.beforRefreshText;
+				}, 1000)
+			},
+			scrolltolower(index) {
+				log('触底了' + index);
+				this.getContentData(index, getContentDataStatusObj.scrolltolower);
+			},
+			getTabsQuery(cb) {
+				let scroll = uni.createSelectorQuery().in(this);
+				scroll.select('#tabs-scroll').fields({
+					scrollOffset: true,
+					size: true
+				});
+				scroll.exec(data => {
+					log('scroll布局信息:' + JSON.stringify(data));
+					if (_isFn(cb)) cb(data);
+				});
+			},
+			getComponentWidth(cb) {
+				let _this = this;
+				if (_this.compontWidth) {
+					if (_isFn(cb)) cb(res);
+				} else {
+					let view = uni.createSelectorQuery().in(_this);
+					view.select('#QS-tabs-list-nvue').boundingClientRect().exec(res => {
+						log('组件布局信息:' + JSON.stringify(res))
+						let w = res[0].width;
+						_this.compontWidth = w;
+						if (_isFn(cb)) cb(w);
+					});
+				}
+			},
+			getDefCurrent() {
+				const defCurrent = Number(this.defCurrent);
+				const endCurrent = this.tabs.length - 1;
+				return defCurrent > endCurrent ? endCurrent : defCurrent;
+			},
+			getTabsLineDx(current) {
+				// log('getTabsLineDx: ' + current);
+				const info = this.tabsInfo[current];
+				if (!info) return 0;
+				return info.left + info.width / 2 - Number(this.lineWidth) / 2;
+			},
+			getTabsInfo() { //设置tabs数据后相应初始化
+				let _this = this;
+				let view = uni.createSelectorQuery().in(_this);
+				for (let i = 0; i < _this.tabs.length; i++) {
+					view.select('#' + _this.preId + i).boundingClientRect();
+				}
+				// _this.getTabsQuery(tabsQuery => {
+				// log('tabsQuery:' + JSON.stringify(tabsQuery));
+				view.exec((res) => {
+					log('tabs布局信息:' + JSON.stringify(res));
+					/* const arr = [];
+					for (let i = 0; i < res.length; i++) {
+						const item = res[i];
+						if (item) {
+							item.left += tabsQuery[0].left;
+						}
+						arr.push(item);
+					}
+					_this.tabsInfo = arr;
+					log('最终生成的tabsInfo:' + JSON.stringify(arr)); */
+					_this.tabsInfo = res;
+					_setTimeout(() => {
+						if (!_this.readyShow) _this.readyShow = true;
+						_setTimeout(() => {
+							if (!_this.swiperContentShow) _this.swiperContentShow = true;
+							_setTimeout(() => {
+								log('准备触发init')
+								_this.initDefCurrent(_this.getDefCurrent());
+							})
+						})
+					});
+				})
+				// });
+			},
+			initDefCurrent(initDefCurrent) {
+				if (initDefCurrent !== 0) this.initSwiperTransition = true;
+				this.moveDxFn(this.getTabsLineDx(initDefCurrent));
+				this.setScrollLeft(initDefCurrent);
+				this.swiperCurrent = initDefCurrent;
+				this.current = initDefCurrent;
+				// this.getContentData(initDefCurrent, getContentDataStatusObj.init);
+				this.checkTabInited(initDefCurrent);
+			},
+			checkTabInited(current) {
+				const item = this.tabs_copy[current];
+				if (item && !item.inited) {
+					this.tabs_copy[current].inited = true;
+					this.getContentData(current, getContentDataStatusObj.init);
+				};
+			},
+			getContentData(current, status) {
+				const refs = this.$refs[this.contentComponentsRefName];
+				if (_isUndefOrNull(refs)) {
+					log('找不到refs');
+					return;
+				}
+				const ref = refs[current];
+				if (_isUndefOrNull(ref)) {
+					log('找不到当前项的ref');
+					return;
+				}
+				if (_isFn(ref.getData)) ref.getData(status);
+			},
+			resetInit() {
+				if (this.readyShow) this.readyShow = false;
+				if (this.inited) this.inited = false;
+				if (this.initSwiperTransition) this.initSwiperTransition = false;
+			},
+			setTabs(tabs) { //设置tabs数据, 由外部ref调用
+				let _this = this;
+				if (_isArray(tabs)) {
+					this.resetInit();
+					_setTimeout(() => {
+						_this.tabs = tabs;
+						_this.setTabsCopy();
+						_setTimeout(_this.getTabsInfo, 100);
+					}, 100)
+				} else {
+					log('请传入Array类型数据');
+				}
+			},
+			setTabsCopy() {
+				const arr = [];
+				for (let i = 0; i < this.tabs.length; i++) {
+					arr.push({
+						refresh: {
+							refreshing: false,
+							refreshText: this.beforRefreshText,
+						},
+						inited: false,
+						scroll: 0,
+						oldScroll: 0,
+						backToTopShow: false
+					})
+				}
+				this.tabs_copy = arr;
+			},
+			swiperAction(e) { //swiper相关行为
+				switch (e.type) {
+					case 'transition':
+						// log('transition变化 dx:' + e.detail.dx);
+						if (!this.initSwiperTransition) this.movingAction(e.detail.dx);
+						break;
+					case 'change':
+						this.disableTouch = true;
+						this.setScrollLeft(e.detail.current);
+						this.swiperCurrent = e.detail.current;
+						log('change: ' + e.detail.current);
+						break;
+					case 'animationfinish':
+						this.checkTabInited(e.detail.current);
+						_setTimeout(() => {
+							this.disableTouch = false;
+							log('animationfinish: ' + e.detail.current);
+							this.current = e.detail.current;
+							this.swiperCurrent = e.detail.current;
+							// this.setScrollLeft(e.detail.current);
+							if (this.istapChangeCurrent) this.istapChangeCurrent = false;
+							if (this.initSwiperTransition) this.initSwiperTransition = false;
+						})
+						break;
+					default:
+						log(JSON.stringify(e));
+						break;
+				}
+			},
+			movingAction(dx) {
+				const swiperCurrent = this.swiperCurrent;
+				const current = this.current;
+				switch (this.activeType) {
+					case 'moveLine':
+						if (Math.abs(swiperCurrent - current) <= 1) {
+							this.moveLine(dx);
+						} else {
+							this.moveDxFn(this.getTabsLineDx(swiperCurrent))
+							this.setScrollLeft(swiperCurrent);
+						}
+						break;
+				}
+			},
+			moveDxFn(dx, cb) {
+				// #ifdef APP-NVUE
+				animation.transition(this.$refs.tabsLine, {
+					styles: {
+						opacity: 1,
+						transform: 'translateX(' + dx + 'px)'
+					},
+					duration: 0, //ms
+					needLayout: false,
+					delay: 0 //ms
+				})
+				// #endif
+				// #ifndef APP-NVUE
+				this.lineAni.opacity(1).translateX(dx).step();
+				this.animationData = this.lineAni.export();
+				// #endif
+			},
+			moveLine(dx) {
+				const tabsInfo = this.tabsInfo;
+				const current = this.current;
+				let nextCurrent;
+				if (dx >= 0) {
+					nextCurrent = current + 1;
+				} else {
+					nextCurrent = current - 1;
+				}
+				// log(JSON.stringify(tabsInfo[nextCurrent]));
+				if (tabsInfo[nextCurrent]) {
+					const pointA = this.getTabsLineDx(current);
+					const pointB = this.getTabsLineDx(nextCurrent);
+					const distance = pointB - pointA;
+					const scale = this.getMoveScale(dx);
+					const addDx = distance * scale;
+					const moveDx = pointA + addDx;
+					this.moveDxFn(moveDx);
+				}
+			},
+			setScrollLeft(current) {
+				const currentTab = this.tabsInfo[current];
+				if (currentTab) {
+					this.scrollLeft = currentTab.left + currentTab.width / 2 - this.compontWidth / 2;
+				}
+			},
+			getMoveScale(dx) {
+				return Math.abs(dx) / this.compontWidth;
+			},
+			tabTap(index) {
+				if (this.swiperCurrent !== index && !this.disableTouch) {
+					this.disableTouch = true;
+					this.istapChangeCurrent = true;
+					this.swiperCurrent = index;
+				}
+			},
+			listScroll(e, index) {
+				this.tabs_copy[index].oldScroll = e.detail.scrollTop;
+				if(!this.tabs_copy[index].backToTopDisable) {
+					if (e.detail.scrollTop > Number(this.backToTopDistance)) {
+						if (!this.tabs_copy[index].backToTopShow) this.tabs_copy[index].backToTopShow = true;
+					} else {
+						if (this.tabs_copy[index].backToTopShow) this.tabs_copy[index].backToTopShow = false;
+					}
+				}
+			},
+			backToTopFn(index) {
+				this.tabs_copy[index].backToTopDisable = true;
+				this.tabs_copy[index].backToTopShow = false;
+				this.tabs_copy[index].scroll = this.tabs_copy[index].oldScroll;
+				_setTimeout(() => {
+					this.tabs_copy[index].scroll = 0;
+					_setTimeout(()=>{
+						this.tabs_copy[index].backToTopDisable = false;
+					}, 500)
+				})
+			}
+		}
+	}
+</script>
+
+<style scoped>
+	.refresh {
+		align-items: center;
+		justify-content: center;
+	}
+
+	.indicator-text {
+		text-align: center;
+	}
+
+	.indicator {
+		margin-top: 16px;
+	}
+
+	.container {
+		flex-direction: column;
+	}
+
+	.tabs-container {
+		position: relative;
+		flex-direction: row;
+	}
+
+	.tabs-container-view {
+		position: relative;
+		flex-direction: row;
+		transition-property: background-color;
+		transition-duration: .2s;
+		/* #ifndef APP-NVUE */
+		height: 100%;
+		width: 100%;
+		/* #endif */
+	}
+
+	.tab-item {
+		justify-content: center;
+		align-items: center;
+		position: relative;
+	}
+
+	.tab-text {
+		opacity: 0;
+	}
+
+	.tab-text-abs {
+		position: absolute;
+		top: 0;
+		left: 0;
+		text-align: center;
+	}
+
+	.tabs-line-container {
+		position: absolute;
+		left: 0;
+		opacity: 0;
+		transition-property: background-color;
+		transition-duration: .2s;
+	}
+
+	.swiper-container {
+		position: relative;
+		transition-property: background-color;
+		transition-duration: .2s;
+	}
+
+	.swiper-item-scroll-view {
+		position: relative;
+	}
+
+	.list_view {
+		position: relative;
+	}
+
+	.backToTopView {
+		position: absolute;
+		border-radius: 99999999999999px;
+	}
+	
+	.backToTop{
+		height: 100rpx;
+		width: 100rpx;
+		border-radius: 99999999999999px;
+		align-items: center;
+		justify-content: center;
+		background-color: #fff;
+		border-width: 1px;
+		border-color: #f2f2f2;
+	}
+	
+	.backToTopText{
+		font-size: 22rpx;
+		color: #999;
+	}
+</style>
